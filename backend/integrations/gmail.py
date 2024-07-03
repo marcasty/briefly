@@ -19,6 +19,7 @@ class GmailMessage(BaseModel):
     snippet: str
     subject: str
     sender: str
+    sender_email: str
     body: str
     date: str
     classification: Optional[str] = None
@@ -89,6 +90,9 @@ def get_messages_since_yesterday():
         msg = service.users().messages().get(userId='me', id=message['id'], format='full').execute()
         subject = next(header['value'] for header in msg['payload']['headers'] if header['name'].lower() == 'subject')
         sender = next(header['value'] for header in msg['payload']['headers'] if header['name'].lower() == 'from')
+        sender_email = sender.split('<')[1].split('>')[0]
+        sender = sender.split('<')[0].strip()
+        
         body = get_message_body(msg['payload'])
         
         downloaded_messages.append(GmailMessage(
@@ -98,6 +102,7 @@ def get_messages_since_yesterday():
             snippet=msg['snippet'],
             subject=subject,
             sender=sender,
+            sender_email=sender_email,
             body=body,
             date=msg['internalDate']
         ))
