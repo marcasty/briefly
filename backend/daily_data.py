@@ -15,8 +15,12 @@ class EmailResponse(BaseModel):
     spam_emails: List[GmailMessage]
 
 
+def anthropic_cost(usage):
+    return (usage.input_tokens * 3 * 1e-6) + (usage.output_tokens * 15 * 1e-6) # sonnet pricing
+
+
 async def summarize_thread(client, thread_messages):
-    combined_content = "\n\n".join([f"Subject: {msg['subject']}\nFrom: {msg['sender']}\nBody: {msg['body'][:500]}..." for msg in thread_messages])
+    combined_content = "\n\n".join([f"Subject: {msg.subject}\nFrom: {msg.sender}\nBody: {msg.body[:500]}..." for msg in thread_messages])
     prompt = f"""
     Summarize the following email thread concisely:
 
@@ -31,7 +35,8 @@ async def summarize_thread(client, thread_messages):
         temperature=0.0,
         model="claude-3-5-sonnet-20240620"
     )
-    return response.content[0].text.strip()
+    cost = anthropic_cost(response.usage)
+    return response.content[0].text.strip(), cost
 
 
 async def get_event_related_emails():
@@ -44,7 +49,7 @@ async def get_event_related_emails():
     events = await get_today_events()
     
     event_summaries = []
-    
+    total_cost = 0
     for event in events:
         attendees = event['attendees']
         non_self_attendees = [attendee for attendee in attendees if attendee != SELF_EMAIL]
@@ -63,13 +68,17 @@ async def get_event_related_emails():
             
             if thread_messages:
                 # Summarize the thread
-                summary = await summarize_thread(client, thread_messages)
+                summary, cost = await summarize_thread(client, thread_messages)
                 event_summary['attendee_summaries'].append({
                     'attendee': attendee,
                     'summary': summary
                 })
+                total_cost += cost
         
         event_summaries.append(event_summary)
+        
+    if DEBUG >= 1:
+        print(f"\033[95mTotal Cost: ${total_cost:.5f}\033[0m", flush=True)
     
     return event_summaries
 
@@ -105,8 +114,7 @@ async def classify_email(client, email: GmailMessage) -> Tuple[str, int]:
         temperature=0.0,
         model="claude-3-5-sonnet-20240620"
     )
-    usage = response.usage
-    cost = (usage.input_tokens * 3 * 1e-6) + (usage.output_tokens * 15 * 1e-6) # sonnet pricing
+    cost = anthropic_cost(response.usage)
     return response.content[0].text.strip(), cost
 
 
@@ -140,8 +148,7 @@ async def summarize_email(client, email: GmailMessage) -> Tuple[str, int]:
         temperature=0.0,
         model="claude-3-5-sonnet-20240620"
     )
-    usage = response.usage
-    cost = (usage.input_tokens * 3 * 1e-6) + (usage.output_tokens * 15 * 1e-6) # sonnet pricing
+    cost = anthropic_cost(response.usage)
     return response.content[0].text.strip(), cost
 
 
