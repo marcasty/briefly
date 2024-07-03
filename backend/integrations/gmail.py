@@ -98,10 +98,39 @@ def get_recent_messages():
         downloaded_messages.append({
             'subject': subject,
             'sender': sender,
-            'body': body_data[:100],  # Truncate body to first 100 characters
+            'body': body_data,
             'date': msg['internalDate']
         })
     return downloaded_messages
+
+
+def get_attendee_email_threads(attendee, max_threads=3):
+    service = get_google_api_service('gmail', 'v1')
+    query = f"to:{attendee} OR from:{attendee}"
+    threads = service.users().threads().list(userId='me', q=query).execute().get('threads', [])
+    
+    thread_messages = []
+    for thread in threads[:max_threads]:
+        thread_data = service.users().threads().get(userId='me', id=thread['id']).execute()
+        for msg in thread_data['messages']:
+            headers = msg['payload']['headers']
+            subject = next((header['value'] for header in headers if header['name'].lower() == 'subject'), 'No Subject')
+            sender = next((header['value'] for header in headers if header['name'].lower() == 'from'), 'Unknown Sender')
+            
+            if 'parts' in msg['payload']:
+                body = msg['payload']['parts'][0]['body']
+            else:
+                body = msg['payload']['body']
+            
+            body_data = base64.urlsafe_b64decode(body.get('data', '')).decode('utf-8') if 'data' in body else "No message body"
+            
+            thread_messages.append({
+                'subject': subject,
+                'sender': sender,
+                'body': body_data
+            })
+    
+    return thread_messages
 
 if __name__ == '__main__':
     messages = get_messages_since_yesterday()

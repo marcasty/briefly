@@ -1,7 +1,66 @@
 import asyncio
 from anthropic import AsyncAnthropic
-from integrations.gmail import get_messages_since_yesterday
-import os
+from integrations.gmail import get_messages_since_yesterday, get_attendee_email_threads
+from integrations.google_calendar import get_today_events
+import os, base64
+
+
+SELF_EMAIL = "markacastellano2@gmail.com"
+
+async def summarize_thread(client, thread_messages):
+    combined_content = "\n\n".join([f"Subject: {msg['subject']}\nFrom: {msg['sender']}\nBody: {msg['body'][:500]}..." for msg in thread_messages])
+    prompt = f"""
+    Summarize the following email thread concisely:
+
+    {combined_content}
+
+    Provide a brief summary that captures the main points and any important details.
+    """
+    
+    response = await client.messages.create(
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=1024,
+        temperature=0.0,
+        model="claude-3-5-sonnet-20240620"
+    )
+    return response.content[0].text.strip()
+
+
+async def get_event_related_emails():
+    client = AsyncAnthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+    
+    # Get today's events
+    events = await get_today_events()
+    
+    event_summaries = []
+    
+    for event in events:
+        attendees = event['attendees']
+        non_self_attendees = [attendee for attendee in attendees if attendee != SELF_EMAIL]
+        
+        event_summary = {
+            'event': event['summary'],
+            'start': event['start'],
+            'end': event['end'],
+            'attendee_summaries': []
+        }
+
+
+        for attendee in non_self_attendees:
+            # Get email threads for the attendee
+            thread_messages = get_attendee_email_threads(attendee)
+            
+            if thread_messages:
+                # Summarize the thread
+                summary = await summarize_thread(client, thread_messages)
+                event_summary['attendee_summaries'].append({
+                    'attendee': attendee,
+                    'summary': summary
+                })
+        
+        event_summaries.append(event_summary)
+    
+    return event_summaries
 
 async def classify_email(client, email):
     prompt = f"""
@@ -61,3 +120,5 @@ async def get_classified_emails():
         print("---", flush=True)
         
     return classified_emails, useful_emails
+
+
