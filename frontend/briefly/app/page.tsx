@@ -6,6 +6,7 @@ import Footer from '../components/Footer';
 interface Email {
   subject: string;
   sender: string;
+  summary: string;
 }
 
 interface AttendeeEmail {
@@ -21,6 +22,9 @@ interface CalendarEvent {
 }
 
 export default function Home() {
+  const [personalEmails, setPersonalEmails] = useState<Email[]>([]);
+  const [newsEmails, setNewsEmails] = useState<Email[]>([]);
+  const [spamEmails, setSpamEmails] = useState<Email[]>([]);
   const [usefulEmails, setUsefulEmails] = useState<Email[]>([]);
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -43,7 +47,9 @@ export default function Home() {
         const emailsData = await emailsResponse.json();
         const calendarData = await calendarResponse.json();
 
-        setUsefulEmails(emailsData.useful_emails);
+        setPersonalEmails(emailsData.personal_emails);
+        setNewsEmails(emailsData.news_emails);
+        setSpamEmails(emailsData.spam_emails);
         setCalendarEvents(calendarData.events);
       } catch (error) {
         console.error('Error fetching data:', error);
@@ -72,7 +78,7 @@ export default function Home() {
                          |___/ `}
           </pre>
         </div>
-        <h2 className="text-3xl font-bold mb-6">Calendar Events</h2>
+        <h2 className="text-3xl font-bold mb-6">Personal Brief</h2>
         <ul className="space-y-4 mb-8">
           {calendarEvents.map((event, index) => (
             <li key={index} className="p-4 border border-white rounded-lg">
@@ -92,12 +98,23 @@ export default function Home() {
             </li>
           ))}
         </ul>
-        <h2 className="text-3xl font-bold mb-6">Emails</h2>
         <ul className="space-y-4">
-          {usefulEmails.map((email, index) => (
+          {personalEmails.map((email, index) => (
             <li key={index} className="p-4 border border-white rounded-lg">
-              <p className="font-semibold">{email.subject}</p>
               <p className="text-sm text-gray-300">From: {email.sender}</p>
+              <p className="font-semibold">{email.subject}</p>
+              <p className="text-sm text-gray-300">{email.summary}</p>
+            </li>
+          ))}
+        </ul>
+
+        <h2 className="text-3xl font-bold mb-6">News Brief</h2>
+        <ul className="space-y-4">
+          {newsEmails.map((email, index) => (
+            <li key={index} className="p-4 border border-white rounded-lg">
+              <p className="text-sm text-gray-300">From: {email.sender}</p>
+              <p className="font-semibold">{email.subject}</p>
+              <p className="text-sm text-gray-300">{email.summary}</p>
             </li>
           ))}
         </ul>
