@@ -9,16 +9,16 @@ interface Email {
   summary: string;
 }
 
-interface AttendeeEmail {
-  attendee: string;
-  summary: string;
-}
-
 interface CalendarEvent {
-  event: string;
+  summary: string;
+  creator: string;
+  organizer: string;
+  attendees: string[];
   start: string;
   end: string;
-  attendee_summaries: AttendeeEmail[];
+  description: string;
+  location: string;
+  context: string;
 }
 
 export default function Home() {
@@ -81,16 +81,30 @@ export default function Home() {
         <ul className="space-y-2">
           {calendarEvents.map((event, index) => (
             <li key={index} className="p-4">
-              <p className="text-md font-semibold text-main_white">{event.event}</p>
-              {event.attendee_summaries.length > 0 && (
-                <div>
+              <p className="text-md font-semibold text-main_white">{event.summary}</p>
+              <p className="text-sm text-sub_grey mb-1">
+                {new Date(event.start).toLocaleString()} - {new Date(event.end).toLocaleString()}
+              </p>
+              {event.location && (
+                <p className="text-sm text-sub_grey mb-1">
+                  <span className="font-medium">Location:</span> {event.location}
+                </p>
+              )}
+              {event.attendees.length > 0 && (
+                <div className="mb-2">
+                  <p className="text-sm font-medium text-sub_grey">Attendees:</p>
                   <ul className="list-disc list-inside">
-                    {event.attendee_summaries.map((summary, idx) => (
-                      <li key={idx} className="ml-4">
-                        <span className="font-medium">{summary.attendee}:</span> {summary.summary}
-                      </li>
+                    {event.attendees.map((attendee, idx) => (
+                      <li key={idx} className="text-sm text-sub_sub_grey ml-4">{attendee}</li>
                     ))}
                   </ul>
+                </div>
+              )}
+
+              {event.context && (
+                <div className="mt-2">
+                  <p className="text-sm font-medium text-sub_grey mb-1">Context:</p>
+                  <p className="text-sm text-sub_sub_grey whitespace-pre-wrap">{event.context}</p>
                 </div>
               )}
             </li>

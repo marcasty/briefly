@@ -1,11 +1,9 @@
 import pickle, os
-from typing import Tuple, List
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.encoders import jsonable_encoder
-from pydantic import BaseModel
 
-from daily_data import get_email_data, get_event_related_emails, EmailResponse
+from daily_data import get_email_data, get_event_related_emails, EmailResponse, CalendarResponse
 
 app = FastAPI()
 
@@ -38,10 +36,8 @@ async def get_emails():
 
 @app.get("/api/get-calendar")
 async def get_calendar():
-    events = await load_or_save_pickle('calendar_events.pickle', get_event_related_emails)
-    return {
-        "events": events,
-    }
+    calendar_data: CalendarResponse = await load_or_save_pickle('calendar_events.pickle', get_event_related_emails)
+    return jsonable_encoder(calendar_data)
 
 
 if __name__ == "__main__":
