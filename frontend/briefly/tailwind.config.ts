@@ -13,7 +13,12 @@ const config: Config = {
         dark_navy: "#00003b",
         grey_navy: "#141441",
         white: "#ffffff",
-        light_blue: "#c4c1ff"
+        light_blue: "#c4c1ff",
+        main_white: "#E5E9EF",
+        sub_grey: "#C2CAD8", 
+        sub_sub_grey: "#909CB2",
+        midjourney_navy: "#0A092A",
+        briefly_box: "#0D1D3A"
       },
     },
   },

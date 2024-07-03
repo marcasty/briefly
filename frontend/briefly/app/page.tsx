@@ -64,9 +64,9 @@ export default function Home() {
 
 
   return (
-    <div className="bg-dark_navy flex flex-col min-h-screen text-white">
+    <div className="bg-midjourney_navy flex flex-col min-h-screen text-white">
       <main className="flex-grow container mx-auto px-4 py-8">
-        <div className="bg-grey_navy p-6 mb-8 rounded-lg shadow-lg flex justify-center items-center">
+        <div className="bg-briefly_box p-6 mb-8 rounded-lg shadow-lg flex justify-center items-center">
           <pre className="text-white font-mono text-sm">
 {` _          _       __ _       
 | |        (_)     / _| |      
@@ -78,14 +78,13 @@ export default function Home() {
                          |___/ `}
           </pre>
         </div>
-        <h2 className="text-3xl font-bold mb-6">Personal Brief</h2>
-        <ul className="space-y-4 mb-8">
+        <h2 className="text-3xl font-bold mb-6">personal</h2>
+        <ul className="space-y-2">
           {calendarEvents.map((event, index) => (
-            <li key={index} className="p-4 border border-white rounded-lg">
-              <p className="font-semibold">{event.event}</p>
+            <li key={index} className="p-4">
+              <p className="text-md font-semibold text-main_white">{event.event}</p>
               {event.attendee_summaries.length > 0 && (
                 <div>
-                  <p className="font-semibold mt-2">Attendee Summaries:</p>
                   <ul className="list-disc list-inside">
                     {event.attendee_summaries.map((summary, idx) => (
                       <li key={idx} className="ml-4">
@@ -97,24 +96,23 @@ export default function Home() {
               )}
             </li>
           ))}
-        </ul>
-        <ul className="space-y-4">
           {personalEmails.map((email, index) => (
-            <li key={index} className="p-4 border border-white rounded-lg">
-              <p className="text-sm text-gray-300">From: {email.sender}</p>
-              <p className="font-semibold">{email.subject}</p>
-              <p className="text-sm text-gray-300">{email.summary}</p>
+            <li key={index} className="p-4">
+              <p className="text-md font-semibold text-main_white">{email.sender}</p>
+              <p className="text-md text-sub_grey">{email.subject}</p>
+              <p className="text-sm text-sub_sub_grey">{email.summary}</p>
             </li>
           ))}
         </ul>
+        <div className="mt-8"></div>
 
-        <h2 className="text-3xl font-bold mb-6">News Brief</h2>
-        <ul className="space-y-4">
+        <h2 className="text-3xl font-bold mb-6">news</h2>
+        <ul className="space-y-2">
           {newsEmails.map((email, index) => (
-            <li key={index} className="p-4 border border-white rounded-lg">
-              <p className="text-sm text-gray-300">From: {email.sender}</p>
-              <p className="font-semibold">{email.subject}</p>
-              <p className="text-sm text-gray-300">{email.summary}</p>
+            <li key={index} className="p-4">
+              <p className="text-md font-semibold text-main_white">From: {email.sender}</p>
+              <p className="text-md text-sub_grey">{email.subject}</p>
+              <p className="text-sm text-sub_sub_grey">{email.summary}</p>
             </li>
           ))}
         </ul>

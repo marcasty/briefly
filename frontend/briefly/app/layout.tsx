@@ -13,8 +13,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${inter.className} bg-dark_navy text-white flex flex-col min-h-screen`}>
-      <header className="bg-dark_navy w-full flex-shrink-0" style={{ height: '40px' }}>
+      <body className={`${inter.className} bg-midjourney_navy text-white flex flex-col min-h-screen`}>
+      <header className="bg-midjourney_navy w-full flex-shrink-0" style={{ height: '40px' }}>
           <div className="w-full h-full">&nbsp;</div>
       </header>
       <main>{children}</main>
