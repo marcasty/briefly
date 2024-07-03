@@ -25,7 +25,6 @@ export default function Home() {
   const [personalEmails, setPersonalEmails] = useState<Email[]>([]);
   const [newsEmails, setNewsEmails] = useState<Email[]>([]);
   const [spamEmails, setSpamEmails] = useState<Email[]>([]);
-  const [usefulEmails, setUsefulEmails] = useState<Email[]>([]);
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -110,7 +109,7 @@ export default function Home() {
         <ul className="space-y-2">
           {newsEmails.map((email, index) => (
             <li key={index} className="p-4">
-              <p className="text-md font-semibold text-main_white">From: {email.sender}</p>
+              <p className="text-md font-semibold text-main_white">{email.sender}</p>
               <p className="text-md text-sub_grey">{email.subject}</p>
               <p className="text-sm text-sub_sub_grey">{email.summary}</p>
             </li>
