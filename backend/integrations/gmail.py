@@ -1,16 +1,34 @@
-import os
+import os, base64
+from typing import List, Optional
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from datetime import datetime, timedelta
-import base64
+from bs4 import BeautifulSoup
+from pydantic import BaseModel
+
 
 CREDENTIALS = "C:/Users/marka/fun/briefly/backend/integrations/markacastellano2@gmail_credentials_desktop.json"
 TOKEN = "C:/Users/marka/fun/briefly/backend/integrations/token.json"
 
+class GmailMessage(BaseModel):
+    id: str
+    threadId: str
+    labels: List[str]
+    snippet: str
+    subject: str
+    sender: str
+    body: str
+    date: str
+    classification: Optional[str] = None
+    summary: str = ""
+
+
 def get_google_api_service(service_name: str, version: str):
-    # SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
+    """
+    Gets Google API service, which lets you log into Google APIs
+    """
     SCOPES = ["https://mail.google.com/", "https://www.googleapis.com/auth/calendar"]
     creds = None
     if os.path.exists(TOKEN):
@@ -25,6 +43,27 @@ def get_google_api_service(service_name: str, version: str):
         with open(TOKEN, 'w') as token:
             token.write(creds.to_json())
     return build(service_name, version, credentials=creds)
+
+
+def decode_and_clean(encoded_data):
+    decoded_data = base64.urlsafe_b64decode(encoded_data).decode('utf-8')
+    soup = BeautifulSoup(decoded_data, 'html.parser')
+    return soup.get_text(separator=' ', strip=True)
+
+
+def get_message_body(payload):
+    if payload.get('body', {}).get('data'):
+        return decode_and_clean(payload['body']['data'])
+    
+    if payload.get('parts'):
+        for part in payload['parts']:
+            if part['mimeType'].startswith('text'):
+                return decode_and_clean(part['body']['data'])
+            elif part['mimeType'].startswith('multipart'):
+                return get_message_body(part)
+    
+    return "No readable content found"
+
 
 
 def get_messages_since_yesterday():
@@ -46,61 +85,23 @@ def get_messages_since_yesterday():
     messages = results.get('messages', [])
     
     downloaded_messages = []
-
-    
     for message in messages:
         msg = service.users().messages().get(userId='me', id=message['id'], format='full').execute()
         subject = next(header['value'] for header in msg['payload']['headers'] if header['name'].lower() == 'subject')
         sender = next(header['value'] for header in msg['payload']['headers'] if header['name'].lower() == 'from')
+        body = get_message_body(msg['payload'])
         
-        # Get the message body
-        if 'parts' in msg['payload']:
-            body = msg['payload']['parts'][0]['body']
-        else:
-            body = msg['payload']['body']
-        
-        if 'data' in body:
-            body_data = base64.urlsafe_b64decode(body['data']).decode('utf-8')
-        else:
-            body_data = "No message body"
-        
-        downloaded_messages.append({
-            'subject': subject,
-            'sender': sender,
-            'body': body_data,
-            'date': msg['internalDate']
-        })
+        downloaded_messages.append(GmailMessage(
+            id=msg['id'],
+            threadId=msg['threadId'],
+            labels=msg['labelIds'],
+            snippet=msg['snippet'],
+            subject=subject,
+            sender=sender,
+            body=body,
+            date=msg['internalDate']
+        ))
     
-    return downloaded_messages
-
-def get_recent_messages():
-    service = get_google_api_service('gmail', 'v1')
-    
-    # Get the 10 most recent messages
-    results = service.users().messages().list(userId='me', maxResults=10).execute()
-    messages = results.get('messages', [])
-    
-    downloaded_messages = []
-    
-    for message in messages:
-        msg = service.users().messages().get(userId='me', id=message['id'], format='full').execute()
-        subject = next((header['value'] for header in msg['payload']['headers'] if header['name'].lower() == 'subject'), 'No Subject')
-        sender = next((header['value'] for header in msg['payload']['headers'] if header['name'].lower() == 'from'), 'Unknown Sender')
-        
-        # Get the message body
-        if 'parts' in msg['payload']:
-            body = msg['payload']['parts'][0]['body']
-        else:
-            body = msg['payload']['body']
-        
-        body_data = base64.urlsafe_b64decode(body.get('data', '')).decode('utf-8') if 'data' in body else "No message body"
-        
-        downloaded_messages.append({
-            'subject': subject,
-            'sender': sender,
-            'body': body_data,
-            'date': msg['internalDate']
-        })
     return downloaded_messages
 
 
@@ -116,28 +117,27 @@ def get_attendee_email_threads(attendee, max_threads=3):
             headers = msg['payload']['headers']
             subject = next((header['value'] for header in headers if header['name'].lower() == 'subject'), 'No Subject')
             sender = next((header['value'] for header in headers if header['name'].lower() == 'from'), 'Unknown Sender')
-            
-            if 'parts' in msg['payload']:
-                body = msg['payload']['parts'][0]['body']
-            else:
-                body = msg['payload']['body']
-            
-            body_data = base64.urlsafe_b64decode(body.get('data', '')).decode('utf-8') if 'data' in body else "No message body"
-            
-            thread_messages.append({
-                'subject': subject,
-                'sender': sender,
-                'body': body_data
-            })
+            body = get_message_body(msg['payload'])            
+            thread_messages.append(GmailMessage(
+                id=msg['id'],
+                threadId=msg['threadId'],
+                labels=msg['labelIds'],
+                snippet=msg['snippet'],
+                subject=subject,
+                sender=sender,
+                body=body,
+                date=msg['internalDate']
+            ))
     
     return thread_messages
 
 if __name__ == '__main__':
-    messages = get_messages_since_yesterday()
+    messages: List[GmailMessage] = get_messages_since_yesterday()
     print(f"Downloaded {len(messages)} messages.")
-    for msg in messages:
-        print(f"Subject: {msg['subject']}")
-        print(f"From: {msg['sender']}")
-        print(f"Date: {msg['date']}")
-        print(f"Body: {msg['body']}...")
+    for i, msg in enumerate(messages):
+        print(f"\033[94mMessage {i+1}:\033[0m")
+        print(f"Subject: {msg.subject}")
+        print(f"From: {msg.sender}")
+        print(f"Date: {msg.date}")
+        print(f"Body: {msg.body[:200]}...")
         print("---")

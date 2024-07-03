@@ -1,11 +1,19 @@
-import asyncio
+import asyncio, os
+from typing import List, Tuple
+from pydantic import BaseModel
 from anthropic import AsyncAnthropic
-from integrations.gmail import get_messages_since_yesterday, get_attendee_email_threads
+from integrations.gmail import get_messages_since_yesterday, get_attendee_email_threads, GmailMessage
 from integrations.google_calendar import get_today_events
-import os, base64
 
-
+DEBUG = 1
 SELF_EMAIL = "markacastellano2@gmail.com"
+
+
+class EmailResponse(BaseModel):
+    personal_emails: List[GmailMessage]
+    news_emails: List[GmailMessage]
+    spam_emails: List[GmailMessage]
+
 
 async def summarize_thread(client, thread_messages):
     combined_content = "\n\n".join([f"Subject: {msg['subject']}\nFrom: {msg['sender']}\nBody: {msg['body'][:500]}..." for msg in thread_messages])
@@ -27,6 +35,9 @@ async def summarize_thread(client, thread_messages):
 
 
 async def get_event_related_emails():
+    """
+    Get's emails related to todays events
+    """
     client = AsyncAnthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
     
     # Get today's events
@@ -62,63 +73,139 @@ async def get_event_related_emails():
     
     return event_summaries
 
-async def classify_email(client, email):
+
+async def classify_email(client, email: GmailMessage) -> Tuple[str, int]:
+    """
+    Classifies personal, news, and spam emails
+    """
     prompt = f"""
     Classify the following email into one of the following categories:
     <categories>
-    useful
+    personal
+    news
     spam
     </categories>
 
-    Useful emails are emails from people or newsletters with interesting information about what's going on in the world. 
-    Spam emails are promotional emails that are trying to sell a product, ask for donations, notify terms of service changes 
+    personal emails are emails from individuals or emails directed to me. I am personally uninterested in emails that act as notifications.
+    news emails are typically newsletters with news about what's going on in the world. 
+    spam emails are often promotional emails that try to sell products, ask for donations, notify of sales, or notify terms of service changes 
 
     Here is the email:
     <email>
-    From: {email['sender']}
-    Subject: {email['subject']}
-    Body: {email['body'][:500]}...
+    From: {email.sender}
+    Subject: {email.subject}
+    Body: {email.body[:500]}...
     </email>
     """
     
     response = await client.messages.create(
         messages=[{"role":"user", "content": prompt}, {"role":"assistant", "content": "<category>"}],
         stop_sequences=["</category>"], 
-        max_tokens=1024, 
+        max_tokens=64, 
         temperature=0.0,
         model="claude-3-5-sonnet-20240620"
     )
-    return response.content[0].text.strip()
+    usage = response.usage
+    cost = (usage.input_tokens * 3 * 1e-6) + (usage.output_tokens * 15 * 1e-6) # sonnet pricing
+    return response.content[0].text.strip(), cost
 
-async def get_and_classify_emails():
+
+async def summarize_email(client, email: GmailMessage) -> Tuple[str, int]:
+    """
+    Summarizes personal and news emails
+    """
+    prompt = f"""
+    You are a personal assistant, and I need help staying on top of my email inbox. 
+    Summarize the following email concisely:
+
+    <email>
+    From: {email.sender}
+    Subject: {email.subject}
+    Body: {email.body}
+    </email>
+
+    Capture the main points and any important details.
+    """
+    if email.classification == "personal":
+        prompt += f"\nThis is a personal email, so keep the summary very short."
+        max_tokens = 128
+    elif email.classification == "news":
+        prompt += f"\nThis email is news, so your description of each newsworthy item should be concise so I can quickly know what's throughout the newsletter."
+        max_tokens = 768
+
+    response = await client.messages.create(
+        messages=[{"role": "user", "content": prompt}, {"role":"assistant", "content": "<summary>"}],
+        stop_sequences=["</summary>"],
+        max_tokens=max_tokens,
+        temperature=0.0,
+        model="claude-3-5-sonnet-20240620"
+    )
+    usage = response.usage
+    cost = (usage.input_tokens * 3 * 1e-6) + (usage.output_tokens * 15 * 1e-6) # sonnet pricing
+    return response.content[0].text.strip(), cost
+
+
+async def get_email_data() -> Tuple[List[GmailMessage], List[GmailMessage]]:
+    """
+    Gets emails from past day
+    Classifies them as personal, news, spam
+    Summarizes them
+    """
+    # get emails
+    emails: List[GmailMessage] = get_messages_since_yesterday()
+    
+    # classify emails
     client = AsyncAnthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
-    emails = get_messages_since_yesterday()
-    
     classification_tasks = [classify_email(client, email) for email in emails]
-    classifications = await asyncio.gather(*classification_tasks)
+    results = await asyncio.gather(*classification_tasks)
+    classifications = [result[0] for result in results]
+    total_cost = sum([result[1] for result in results])
     
-    classified_emails = []
+    # save classification and filter
+    personal, news, spam = [], [], []
     for email, classification in zip(emails, classifications):
-        email['classification'] = classification
-        classified_emails.append(email)
-    
-    useful_emails = [email for email in classified_emails if email['classification'] == "useful"]
-    return classified_emails, useful_emails
+        email.classification = classification
+        if classification == "personal":
+            personal.append(email)
+        elif classification == "news":
+            news.append(email)
+        elif classification == "spam":
+            spam.append(email)
 
-async def get_classified_emails():
-    classified_emails, useful_emails = await get_and_classify_emails()
-    for i, email in enumerate(classified_emails):
-        print(f"Email {i+1}:", flush=True)
-        print(f"Subject: {email['subject']}", flush=True)
-        print(f"From: {email['sender']}", flush=True)
-        if email['classification'] == "useful":
-            print(f"\033[92mClassification: {email['classification']}\033[0m", flush=True)
-        elif email['classification'] == "spam":
-            print(f"\033[91mClassification: {email['classification']}\033[0m", flush=True)
-        else:
-            print(f"\033[93mClassification: {email['classification']}\033[0m", flush=True)
-        print("---", flush=True)
-        
-    return classified_emails, useful_emails
+    # Summarize useful emails
+    useful_emails: List[GmailMessage] = personal + news
+    summary_tasks = [summarize_email(client, email) for email in useful_emails]
+    results = await asyncio.gather(*summary_tasks)
+    summaries = [result[0] for result in results]
+    total_cost += sum([result[1] for result in results])
+
+    # save summaries
+    for email, summary in zip(useful_emails, summaries):
+        email.summary = summary
+
+    # printing
+    if DEBUG >= 1:
+        for i, email in enumerate(useful_emails + spam):
+            if email.classification == "personal":
+                print(f"\033[92mEmail {i+1}: {email.classification}\033[0m", flush=True)
+            elif email.classification == "news":
+                print(f"\033[94mEmail {i+1}: {email.classification}\033[0m", flush=True)
+            elif email.classification == "spam":
+                print(f"\033[91mEmail {i+1}: {email.classification}\033[0m", flush=True)
+            else:
+                print(f"\033[93mEmail {i+1}: {email.classification}\033[0m", flush=True)
+            print(f"From: {email.sender}", flush=True)
+            print(f"Subject: {email.subject}", flush=True)
+            print(f"Summary: {email.summary}", flush=True)
+            print("---", flush=True)
+        print(f"\033[95mTotal Cost: ${total_cost:.5f}\033[0m", flush=True)
+
+    return EmailResponse(
+        personal_emails=personal,
+        news_emails=news,
+        spam_emails=spam
+    )
 
 
+if __name__ == "__main__":
+    asyncio.run(get_email_data())

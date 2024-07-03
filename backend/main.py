@@ -1,15 +1,18 @@
+import pickle, os
+from typing import Tuple, List
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from daily_data import get_classified_emails, get_event_related_emails
+from fastapi.encoders import jsonable_encoder
+from pydantic import BaseModel
 
-import pickle, os
+from daily_data import get_email_data, get_event_related_emails, EmailResponse
 
 app = FastAPI()
 
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # 
+    allow_origins=["http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -29,11 +32,8 @@ async def load_or_save_pickle(file_name, data_function):
 
 @app.get("/api/get-emails")
 async def get_emails():
-    email_data = await load_or_save_pickle('email_data.pickle', get_classified_emails)
-    return {
-        "classified_emails": email_data[0],
-        "useful_emails": email_data[1]
-    }
+    email_data: EmailResponse = await load_or_save_pickle('email_data.pickle', get_email_data)
+    return jsonable_encoder(email_data)
 
 
 @app.get("/api/get-calendar")
