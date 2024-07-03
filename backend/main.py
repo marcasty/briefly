@@ -1,7 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from daily_data import get_classified_emails
-from integrations.google_calendar import get_today_events
+from daily_data import get_classified_emails, get_event_related_emails
 
 import pickle, os
 
@@ -39,7 +38,7 @@ async def get_emails():
 
 @app.get("/api/get-calendar")
 async def get_calendar():
-    events = await load_or_save_pickle('calendar_events.pickle', get_today_events)
+    events = await load_or_save_pickle('calendar_events.pickle', get_event_related_emails)
     return {
         "events": events,
     }

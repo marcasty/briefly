@@ -13,6 +13,7 @@ const config: Config = {
         dark_navy: "#00003b",
         grey_navy: "#141441",
         white: "#ffffff",
+        light_blue: "#c4c1ff"
       },
     },
   },

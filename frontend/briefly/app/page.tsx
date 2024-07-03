@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import Header from '../components/Header';
 import Footer from '../components/Footer';
 
 interface Email {
@@ -9,10 +8,16 @@ interface Email {
   sender: string;
 }
 
-interface CalendarEvent {
+interface AttendeeEmail {
+  attendee: string;
   summary: string;
+}
+
+interface CalendarEvent {
+  event: string;
   start: string;
   end: string;
+  attendee_summaries: AttendeeEmail[];
 }
 
 export default function Home() {
@@ -64,18 +69,30 @@ export default function Home() {
 | |_) | |  | |  __/ | | | |_| |
 |_.__/|_|  |_|\\___|_| |_|\\__, |
                           __/ |
-                          |___/ `}
+                         |___/ `}
           </pre>
         </div>
         <h2 className="text-3xl font-bold mb-6">Calendar Events</h2>
         <ul className="space-y-4 mb-8">
           {calendarEvents.map((event, index) => (
             <li key={index} className="p-4 border border-white rounded-lg">
-              <p className="font-semibold">{event.summary}</p>
+              <p className="font-semibold">{event.event}</p>
+              {event.attendee_summaries.length > 0 && (
+                <div>
+                  <p className="font-semibold mt-2">Attendee Summaries:</p>
+                  <ul className="list-disc list-inside">
+                    {event.attendee_summaries.map((summary, idx) => (
+                      <li key={idx} className="ml-4">
+                        <span className="font-medium">{summary.attendee}:</span> {summary.summary}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </li>
           ))}
         </ul>
-        <h2 className="text-3xl font-bold mb-6">Useful Emails</h2>
+        <h2 className="text-3xl font-bold mb-6">Emails</h2>
         <ul className="space-y-4">
           {usefulEmails.map((email, index) => (
             <li key={index} className="p-4 border border-white rounded-lg">
