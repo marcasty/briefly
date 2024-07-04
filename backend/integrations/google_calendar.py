@@ -20,7 +20,7 @@ class CalendarEvent(BaseModel):
     context: str = Field(default="")
 
 
-def get_today_events(days_before=1, days_after=0):
+def get_today_events(days_before=2, days_after=0):
     service = get_google_api_service("calendar", "v3")
     
     # Get the start and end of the desired date range

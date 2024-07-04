@@ -4,8 +4,16 @@ import { useEffect, useState, useCallback } from 'react';
 import Footer from '../components/Footer';
 
 interface Email {
+  id: string;
+  threadId: string;
+  labels: string[];
+  snippet: string;
   subject: string;
   sender: string;
+  sender_email: string;
+  body: string;
+  date: string;
+  classification: string | null;
   summary: string;
 }
 
@@ -25,6 +33,11 @@ interface LessBriefData {
   content: string;
 }
 
+interface CachedLessBriefData {
+  [key: string]: LessBriefData;
+}
+
+
 export default function Home() {
   const [personalEmails, setPersonalEmails] = useState<Email[]>([]);
   const [newsEmails, setNewsEmails] = useState<Email[]>([]);
@@ -32,6 +45,7 @@ export default function Home() {
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [lessBriefData, setLessBriefData] = useState<LessBriefData | null>(null);
+  const [cachedLessBriefData, setCachedLessBriefData] = useState<CachedLessBriefData>({});
 
   useEffect(() => {
     async function fetchData() {
@@ -62,30 +76,35 @@ export default function Home() {
 
   const handleItemClick = useCallback(async (id: string, data: any) => {
     setSelectedItemId(id);
-    try {
-      const response = await fetch('http://localhost:8000/api/less-brief', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-      if (!response.ok) {
-        throw new Error('Failed to fetch less brief data');
+    if (!cachedLessBriefData[id]) {
+    //   setLessBriefData(cachedLessBriefData[id]);
+    // } else {
+      try {
+        const response = await fetch('http://localhost:8000/api/less-brief', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(data),
+        });
+        if (!response.ok) {
+          throw new Error('Failed to fetch less brief data');
+        }
+        const lessBriefData: LessBriefData = await response.json();
+        setLessBriefData(lessBriefData);
+      } catch (error) {
+        console.error('Error fetching less brief data:', error);
       }
-      const lessBriefData: LessBriefData = await response.json();
-      setLessBriefData(lessBriefData);
-    } catch (error) {
-      console.error('Error fetching less brief data:', error);
     }
-  }, []);
+  }, [cachedLessBriefData]);
 
   const renderItem = useCallback((item: CalendarEvent | Email, index: number, type: 'calendar' | 'email') => {
     const id = `${type}-${index}`;
+    const itemLessBriefData = cachedLessBriefData[id];
     return (
       <li 
         key={id} 
-        className={`p-4 cursor-pointer transition-colors duration-200 ${selectedItemId === id ? 'bg-briefly_box' : 'hover:bg-briefly_box'}`}
+        className={`p-4 cursor-pointer transition-colors duration-200 rounded-lg ${selectedItemId === id ? 'bg-briefly_box' : 'hover:bg-briefly_box'}`}
         onClick={() => handleItemClick(id, item)}
       >
         {type === 'calendar' ? (
@@ -106,8 +125,13 @@ export default function Home() {
           </>
         )}
         {selectedItemId === id && lessBriefData && (
-          <div className="mt-4 p-4 bg-briefly_box rounded">
+          <div className="mt-4 p-4 bg-briefly_box rounded-lg">
             <p className="text-sm text-sub_sub_grey whitespace-pre-wrap">{lessBriefData.content}</p>
+          </div>
+        )}
+        {itemLessBriefData && (
+          <div className={`mt-4 p-4 bg-briefly_box rounded-lg ${selectedItemId === id ? '' : 'opacity-50'}`}>
+            <p className="text-sm text-sub_sub_grey whitespace-pre-wrap">{itemLessBriefData.content}</p>
           </div>
         )}
       </li>
