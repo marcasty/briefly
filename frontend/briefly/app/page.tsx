@@ -114,7 +114,18 @@ export default function Home() {
             <p className="text-sm text-sub_grey mb-1">
               {new Date((item as CalendarEvent).start).toLocaleString()} - {new Date((item as CalendarEvent).end).toLocaleString()}
             </p>
-            {/* ... rest of the calendar event rendering ... */}
+            {(item as CalendarEvent).location && (
+              <p className="text-sm text-sub_grey mb-1">
+                <span className="font-medium">Location:</span> {(item as CalendarEvent).location}
+              </p>
+            )}
+            {(item as CalendarEvent).context && (
+              <div className="mt-2">
+                <p className="text-sm font-medium text-sub_grey mb-1">Context:</p>
+                <p className="text-sm text-sub_sub_grey whitespace-pre-wrap">{(item as CalendarEvent).context}</p>
+              </div>
+            )}
+
           </>
         ) : (
           // Render email

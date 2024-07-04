@@ -2,8 +2,12 @@ import pickle, os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.encoders import jsonable_encoder
+from fastapi import HTTPException
 
-from daily_data import get_email_data, get_event_related_emails, EmailResponse, CalendarResponse
+from integrations.google_calendar import CalendarEvent
+from integrations.gmail import GmailMessage
+from make_briefly import get_email_data, get_event_related_emails, EmailResponse, CalendarResponse
+from make_briefless import generate_news_summary, generate_calendar_event_details
 
 app = FastAPI()
 
@@ -40,24 +44,25 @@ async def get_calendar():
     return jsonable_encoder(calendar_data)
 
 
-from pydantic import BaseModel
-class LessBriefRequest(BaseModel):
-    summary: str = None
-    subject: str = None
-    sender: str = None
-    start: str = None
-    end: str = None
-
+LessBriefRequest = GmailMessage | CalendarEvent
 
 @app.post("/api/less-brief")
 async def get_less_brief(request: LessBriefRequest):
-    content = f"Additional details for: {request.summary or request.subject}\n"
-    content += f"From: {request.sender}\n" if request.sender else ""
-    content += f"Time: {request.start} - {request.end}\n" if request.start and request.end else ""
-    content += "This is where you would add more detailed information about the event or email."
-    
-    return {"content": content}
+    if isinstance(request, GmailMessage):
+        # personal emails expose the entire body
+        if request.classification == 'personal':
+            return {"content": request.body}
+        
+        # news emails search the web
+        elif request.classification == "news":
+            return {"content": ""} #generate_news_summary(request.body)}
+        
+    # calendar events expose more data
+    elif isinstance(request, CalendarEvent):
+        return {"content": generate_calendar_event_details(request)}
 
+    else:
+        raise HTTPException(status_code=400, detail="Invalid input data")
 
 
 if __name__ == "__main__":
