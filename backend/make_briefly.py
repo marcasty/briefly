@@ -218,7 +218,7 @@ async def get_email_data() -> Tuple[List[GmailMessage], List[GmailMessage]]:
     news_email_results = await asyncio.gather(*news_email_tasks)
     news_summaries: List[NewsletterSummary] = [result[0] for result in news_email_results]
     for email, summary in zip(news, news_summaries):
-        email.summary = summary.topic_summaries
+        email.summary = '\n'.join(summary.topic_summaries) # convert NewsletterSummary into string
     total_cost += sum([result[1] for result in news_email_results])
 
     # printing
