@@ -40,6 +40,26 @@ async def get_calendar():
     return jsonable_encoder(calendar_data)
 
 
+from pydantic import BaseModel
+class LessBriefRequest(BaseModel):
+    summary: str = None
+    subject: str = None
+    sender: str = None
+    start: str = None
+    end: str = None
+
+
+@app.post("/api/less-brief")
+async def get_less_brief(request: LessBriefRequest):
+    content = f"Additional details for: {request.summary or request.subject}\n"
+    content += f"From: {request.sender}\n" if request.sender else ""
+    content += f"Time: {request.start} - {request.end}\n" if request.start and request.end else ""
+    content += "This is where you would add more detailed information about the event or email."
+    
+    return {"content": content}
+
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

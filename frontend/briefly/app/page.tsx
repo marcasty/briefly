@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Footer from '../components/Footer';
 
 interface Email {
@@ -21,19 +21,21 @@ interface CalendarEvent {
   context: string;
 }
 
+interface LessBriefData {
+  content: string;
+}
+
 export default function Home() {
   const [personalEmails, setPersonalEmails] = useState<Email[]>([]);
   const [newsEmails, setNewsEmails] = useState<Email[]>([]);
   const [spamEmails, setSpamEmails] = useState<Email[]>([]);
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [lessBriefData, setLessBriefData] = useState<LessBriefData | null>(null);
 
   useEffect(() => {
     async function fetchData() {
       try {
-        setIsLoading(true);
-        setError(null);
         const [emailsResponse, calendarResponse] = await Promise.all([
           fetch('http://localhost:8000/api/get-emails'),
           fetch('http://localhost:8000/api/get-calendar')
@@ -52,14 +54,65 @@ export default function Home() {
         setCalendarEvents(calendarData.events);
       } catch (error) {
         console.error('Error fetching data:', error);
-        setError('Failed to fetch data. Please try again later.');
-      } finally {
-        setIsLoading(false);
-      }
+      } 
     }
 
     fetchData();
   }, []);
+
+  const handleItemClick = useCallback(async (id: string, data: any) => {
+    setSelectedItemId(id);
+    try {
+      const response = await fetch('http://localhost:8000/api/less-brief', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to fetch less brief data');
+      }
+      const lessBriefData: LessBriefData = await response.json();
+      setLessBriefData(lessBriefData);
+    } catch (error) {
+      console.error('Error fetching less brief data:', error);
+    }
+  }, []);
+
+  const renderItem = useCallback((item: CalendarEvent | Email, index: number, type: 'calendar' | 'email') => {
+    const id = `${type}-${index}`;
+    return (
+      <li 
+        key={id} 
+        className={`p-4 cursor-pointer transition-colors duration-200 ${selectedItemId === id ? 'bg-briefly_box' : 'hover:bg-briefly_box'}`}
+        onClick={() => handleItemClick(id, item)}
+      >
+        {type === 'calendar' ? (
+          // Render calendar event
+          <>
+            <p className="text-md font-semibold text-main_white">{(item as CalendarEvent).summary}</p>
+            <p className="text-sm text-sub_grey mb-1">
+              {new Date((item as CalendarEvent).start).toLocaleString()} - {new Date((item as CalendarEvent).end).toLocaleString()}
+            </p>
+            {/* ... rest of the calendar event rendering ... */}
+          </>
+        ) : (
+          // Render email
+          <>
+            <p className="text-md font-semibold text-main_white">{(item as Email).sender}</p>
+            <p className="text-md text-sub_grey">{(item as Email).subject}</p>
+            <p className="text-sm text-sub_sub_grey">{(item as Email).summary}</p>
+          </>
+        )}
+        {selectedItemId === id && lessBriefData && (
+          <div className="mt-4 p-4 bg-briefly_box rounded">
+            <p className="text-sm text-sub_sub_grey whitespace-pre-wrap">{lessBriefData.content}</p>
+          </div>
+        )}
+      </li>
+    );
+  }, [selectedItemId, lessBriefData, handleItemClick]);
 
 
   return (
@@ -79,55 +132,13 @@ export default function Home() {
         </div>
         <h2 className="text-3xl font-bold mb-6">personal</h2>
         <ul className="space-y-2">
-          {calendarEvents.map((event, index) => (
-            <li key={index} className="p-4">
-              <p className="text-md font-semibold text-main_white">{event.summary}</p>
-              <p className="text-sm text-sub_grey mb-1">
-                {new Date(event.start).toLocaleString()} - {new Date(event.end).toLocaleString()}
-              </p>
-              {event.location && (
-                <p className="text-sm text-sub_grey mb-1">
-                  <span className="font-medium">Location:</span> {event.location}
-                </p>
-              )}
-              {event.attendees.length > 0 && (
-                <div className="mb-2">
-                  <p className="text-sm font-medium text-sub_grey">Attendees:</p>
-                  <ul className="list-disc list-inside">
-                    {event.attendees.map((attendee, idx) => (
-                      <li key={idx} className="text-sm text-sub_sub_grey ml-4">{attendee}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {event.context && (
-                <div className="mt-2">
-                  <p className="text-sm font-medium text-sub_grey mb-1">Context:</p>
-                  <p className="text-sm text-sub_sub_grey whitespace-pre-wrap">{event.context}</p>
-                </div>
-              )}
-            </li>
-          ))}
-          {personalEmails.map((email, index) => (
-            <li key={index} className="p-4">
-              <p className="text-md font-semibold text-main_white">{email.sender}</p>
-              <p className="text-md text-sub_grey">{email.subject}</p>
-              <p className="text-sm text-sub_sub_grey">{email.summary}</p>
-            </li>
-          ))}
+          {calendarEvents.map((event, index) => renderItem(event, index, 'calendar'))}
+          {personalEmails.map((email, index) => renderItem(email, index, 'email'))}
         </ul>
         <div className="mt-8"></div>
-
         <h2 className="text-3xl font-bold mb-6">news</h2>
         <ul className="space-y-2">
-          {newsEmails.map((email, index) => (
-            <li key={index} className="p-4">
-              <p className="text-md font-semibold text-main_white">{email.sender}</p>
-              <p className="text-md text-sub_grey">{email.subject}</p>
-              <p className="text-sm text-sub_sub_grey">{email.summary}</p>
-            </li>
-          ))}
+          {newsEmails.map((email, index) => renderItem(email, index, 'email'))}
         </ul>
       </main>
       <Footer />
