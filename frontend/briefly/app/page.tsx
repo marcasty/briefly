@@ -14,7 +14,7 @@ interface Email {
   body: string;
   date: string;
   classification: string | null;
-  summary: string;
+  summary: string | string[];
 }
 
 interface CalendarEvent {
@@ -104,9 +104,9 @@ export default function Home() {
     return (
       <li 
         key={id} 
-        className={`p-4 cursor-pointer transition-colors duration-200 rounded-lg ${selectedItemId === id ? 'bg-briefly_box' : 'hover:bg-briefly_box'}`}
-        onClick={() => handleItemClick(id, item)}
-      >
+        className={`p-4 transition-colors duration-200 rounded-lg ${(type === 'calendar' || (type === 'email' && (item as Email).classification === 'personal')) ? 'cursor-pointer' : ''} ${selectedItemId === id ? 'bg-briefly_box' : (type === 'calendar' || (type === 'email' && (item as Email).classification === 'personal')) ? 'hover:bg-briefly_box' : ''}`}
+        onClick={() => type === 'calendar' ? handleItemClick(id, item) : null}
+        >
         {type === 'calendar' ? (
           // Render calendar event
           <>
@@ -125,14 +125,32 @@ export default function Home() {
                 <p className="text-sm text-sub_sub_grey whitespace-pre-wrap">{(item as CalendarEvent).context}</p>
               </div>
             )}
-
           </>
         ) : (
           // Render email
           <>
             <p className="text-md font-semibold text-main_white">{(item as Email).sender}</p>
             <p className="text-md text-sub_grey">{(item as Email).subject}</p>
-            <p className="text-sm text-sub_sub_grey">{(item as Email).summary}</p>
+            {Array.isArray((item as Email).summary) ? (
+              <div className="space-y-1">
+                {(item as Email).summary.map((summaryItem: string, summaryIndex: number) => (
+                  <div 
+                    key={summaryIndex}
+                    className="py-1.5 bg-midjourney_navy rounded cursor-pointer hover:bg-briefly_box transition-colors duration-200"
+                    onClick={() => handleItemClick(`${id}-${summaryIndex}`, { ...item, summary: summaryItem })}
+                  >
+                    <p className="text-sm text-sub_sub_grey">{summaryItem}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p
+              className="text-sm text-sub_sub_grey "
+              onClick={() => handleItemClick(id, item)}
+              >
+                {(item as Email).summary}
+            </p>
+            )}
           </>
         )}
         {selectedItemId === id && lessBriefData && (

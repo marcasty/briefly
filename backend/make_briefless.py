@@ -15,6 +15,8 @@ import concurrent.futures
 
 from make_briefly import anthropic_cost
 
+DEBUG = 1
+
 class SearchResult(BaseModel):
     title: str
     href: str
@@ -187,13 +189,21 @@ async def generate_news_summary(email_summary: str):
     given some information on a topic, go to the web and get more information for the user
     """
     client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
-
+    if DEBUG >= 1:
+        print(f"Generating Search Query")
     search_query, cost = generate_search_query(client, email_summary)
+    if DEBUG >= 1:
+        print(f"Search Query: {search_query}")
+        print(f"Searching Google")
     search_results: List[SearchResult] = await async_google_search(query=search_query)
+    if DEBUG >= 1:
+        print(f"Scraping Web")
     web_pages = scrape_urls(urls=[s.href for s in search_results])
     search_results_text = [extract_text_from_html(web_page) for web_page in web_pages]
+    if DEBUG >= 1:
+        print(f"Summarizing Search Results")
     final_summary, cost2 = summarize_search_results(client, email_summary, search_results_text)
-    total_cost = cost + cost2
+    print(f"Total Cost: {cost + cost2}")
     return final_summary
 
 
