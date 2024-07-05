@@ -13,7 +13,7 @@ from selenium.common.exceptions import TimeoutException, WebDriverException
 from webdriver_manager.chrome import ChromeDriverManager
 import concurrent.futures
 
-from .make_briefly import anthropic_cost
+from make_briefly import anthropic_cost
 
 class SearchResult(BaseModel):
     title: str

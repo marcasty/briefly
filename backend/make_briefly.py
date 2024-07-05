@@ -2,7 +2,7 @@ import asyncio, os
 from typing import List, Tuple
 from pydantic import BaseModel, Field
 from anthropic import AsyncAnthropic
-import instructor
+from instructor import from_anthropic, Mode
 
 from integrations.gmail import get_messages_since_yesterday, get_attendee_email_threads, GmailMessage
 from integrations.google_calendar import get_today_events, CalendarEvent
@@ -19,10 +19,9 @@ class EmailResponse(BaseModel):
 
 class NewsletterSummary(BaseModel):
     """
-    Represents a summary of a newsletter, containing key topics and their brief descriptions.
-    This class is used to store extracted information from news emails or newsletters.
+    A summary of a newsletter, represented as a comma-separated list containing key topics and their brief descriptions.
     """
-    topic_summaries: List[str] = Field(description="Brief summaries or key points for each main topic")
+    topic_summaries: List[str] = Field(description="A comma-separated list of brief summaries or key points for each main topic")
 
 
 class CalendarResponse(BaseModel):
@@ -157,18 +156,18 @@ async def summarize_news_email(client, email: GmailMessage) -> Tuple[NewsletterS
     Summarize news emails
     """
     prompt = f"""
-    Summarize the key topics in the following newsletter:
-    <newsletter>
+    Summarize the key topics in the following newsletter. Please respond invalid JSON.
+
+    NewsLetter:
     From: {email.sender}
     Subject: {email.subject}
     Body: {email.body}
-    </newsletter>
     """
-    response_model, completion = await client.chat.completions.create_with_completion(
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens = 1028,
-        temperature=0.0,
+    response_model, completion = await client.messages.create_with_completion(
         model="claude-3-5-sonnet-20240620",
+        max_tokens = 1024,
+        max_retries=0,
+        messages=[{"role": "user", "content": prompt}],
         response_model=NewsletterSummary
     )
     cost = anthropic_cost(completion.usage)
@@ -211,14 +210,12 @@ async def get_email_data() -> Tuple[List[GmailMessage], List[GmailMessage]]:
     total_cost += sum([result[1] for result in personal_email_results])
 
     # Summarize news emails
-    instructor_client = instructor.from_anthropic(
-        AsyncAnthropic(),
-    )
+    instructor_client = from_anthropic(client=AsyncAnthropic(), mode=Mode.ANTHROPIC_JSON)
     news_email_tasks = [summarize_news_email(instructor_client, email) for email in news]
     news_email_results = await asyncio.gather(*news_email_tasks)
     news_summaries: List[NewsletterSummary] = [result[0] for result in news_email_results]
     for email, summary in zip(news, news_summaries):
-        email.summary = '\n'.join(summary.topic_summaries) # convert NewsletterSummary into string
+        email.summary = summary.topic_summaries
     total_cost += sum([result[1] for result in news_email_results])
 
     # printing

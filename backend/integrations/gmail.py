@@ -24,7 +24,7 @@ class GmailMessage(BaseModel):
     body: str
     date: str
     classification: Optional[str] = None
-    summary: str = ""
+    summary: str | List[str] = ""
 
 
 # def extract_email(string: str) -> str:
