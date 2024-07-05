@@ -136,7 +136,7 @@ export default function Home() {
                 {(item as Email).summary.map((summaryItem: string, summaryIndex: number) => (
                   <div 
                     key={summaryIndex}
-                    className="py-1.5 bg-midjourney_navy rounded cursor-pointer hover:bg-briefly_box transition-colors duration-200"
+                    className="py-1.5 -ml-4 pl-4  bg-midjourney_navy rounded cursor-pointer hover:bg-briefly_box transition-colors duration-200"
                     onClick={() => handleItemClick(`${id}-${summaryIndex}`, { ...item, summary: summaryItem })}
                   >
                     <p className="text-sm text-sub_sub_grey">{summaryItem}</p>
